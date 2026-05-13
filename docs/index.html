@@ -106,7 +106,7 @@ footer a { color: var(--text-dim); }
     <div class="chart-wrap-tall"><canvas id="topChart"></canvas></div>
   </div>
   <div class="card" style="grid-column: 1 / -1;">
-    <h2>14-day trend: top 8 tickers</h2>
+    <h2>Daily history (last 30 days): today's top 10 tickers</h2>
     <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
   </div>
   <div class="card">
@@ -121,7 +121,7 @@ footer a { color: var(--text-dim); }
 </footer>
 
 <script>
-const PALETTE = ["#58a6ff", "#f78166", "#3fb950", "#d2a8ff", "#ffa657", "#79c0ff", "#a5d6ff", "#ff7b72"];
+const PALETTE = ["#58a6ff", "#f78166", "#3fb950", "#d2a8ff", "#ffa657", "#79c0ff", "#ff7b72", "#a5d6ff", "#56d364", "#ffab70"];
 Chart.defaults.color = "#8b949e";
 Chart.defaults.borderColor = "#30363d";
 Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";

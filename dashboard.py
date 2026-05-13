@@ -56,20 +56,19 @@ def build_data(conn: sqlite3.Connection, target_day: str | None = None) -> dict:
     spikes.sort(key=lambda x: -x["ratio"])
     spikes = spikes[:15]
 
-    # Trendlines: last 14 days for the top 8 tickers (by 14d total).
-    top_for_trend = [r[0] for r in conn.execute(
-        "SELECT ticker, SUM(count) FROM mentions "
-        "WHERE day >= ? GROUP BY ticker ORDER BY 2 DESC LIMIT 8",
-        (window_start,),
-    ).fetchall()]
-    # Generate the full day axis so missing days render as zero.
-    day_axis = [(today_dt - timedelta(days=d)).isoformat() for d in range(13, -1, -1)]
+    # Trendlines: today's top 10 tickers. Show up to last 30 days; will
+    # fill in over time as the scraper builds history.
+    TREND_WINDOW = 30
+    top_for_trend = [t["ticker"] for t in top_today[:10]]
+    trend_start = (today_dt - timedelta(days=TREND_WINDOW - 1)).isoformat()
+    day_axis = [(today_dt - timedelta(days=TREND_WINDOW - 1 - d)).isoformat()
+                for d in range(TREND_WINDOW)]
     trends = {}
     for tk in top_for_trend:
         row_map = dict(conn.execute(
             "SELECT day, SUM(count) FROM mentions "
             "WHERE ticker = ? AND day >= ? GROUP BY day",
-            (tk, window_start),
+            (tk, trend_start),
         ).fetchall())
         trends[tk] = [row_map.get(d, 0) for d in day_axis]
 
@@ -215,7 +214,7 @@ footer a { color: var(--text-dim); }
     <div class="chart-wrap-tall"><canvas id="topChart"></canvas></div>
   </div>
   <div class="card" style="grid-column: 1 / -1;">
-    <h2>14-day trend: top 8 tickers</h2>
+    <h2>Daily history (last 30 days): today's top 10 tickers</h2>
     <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
   </div>
   <div class="card">
@@ -230,7 +229,7 @@ footer a { color: var(--text-dim); }
 </footer>
 
 <script>
-const PALETTE = ["#58a6ff", "#f78166", "#3fb950", "#d2a8ff", "#ffa657", "#79c0ff", "#a5d6ff", "#ff7b72"];
+const PALETTE = ["#58a6ff", "#f78166", "#3fb950", "#d2a8ff", "#ffa657", "#79c0ff", "#ff7b72", "#a5d6ff", "#56d364", "#ffab70"];
 Chart.defaults.color = "#8b949e";
 Chart.defaults.borderColor = "#30363d";
 Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
