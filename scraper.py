@@ -89,17 +89,71 @@ def _build_ssl_context() -> ssl.SSLContext:
 _SSL_CTX = _build_ssl_context()
 
 
-def http_get(url: str, retries: int = 3, sleep: float = 2.0) -> bytes:
+def http_get(url: str, retries: int = 3, sleep: float = 2.0, headers: dict | None = None) -> bytes:
     last_err: Exception | None = None
+    h = {"User-Agent": USER_AGENT}
+    if headers:
+        h.update(headers)
     for attempt in range(retries):
         try:
-            req = Request(url, headers={"User-Agent": USER_AGENT})
+            req = Request(url, headers=h)
             with urlopen(req, timeout=30, context=_SSL_CTX) as resp:
                 return resp.read()
         except Exception as e:
             last_err = e
             time.sleep(sleep * (attempt + 1))
     raise RuntimeError(f"GET {url} failed after {retries} attempts: {last_err}")
+
+
+_REDDIT_TOKEN: str | None = None
+_REDDIT_TOKEN_CHECKED = False
+
+
+def get_reddit_token() -> str | None:
+    """Get an app-only OAuth token for Reddit if credentials are set. Cached.
+    Reddit blocks unauth'd requests from cloud provider IPs (e.g. GitHub
+    Actions runners) with 403, but OAuth requests work fine."""
+    global _REDDIT_TOKEN, _REDDIT_TOKEN_CHECKED
+    if _REDDIT_TOKEN_CHECKED:
+        return _REDDIT_TOKEN
+    _REDDIT_TOKEN_CHECKED = True
+    cid = os.environ.get("REDDIT_CLIENT_ID")
+    csec = os.environ.get("REDDIT_CLIENT_SECRET")
+    if not cid or not csec:
+        return None
+    import base64
+    import json
+    creds = base64.b64encode(f"{cid}:{csec}".encode()).decode()
+    req = Request(
+        "https://www.reddit.com/api/v1/access_token",
+        data=b"grant_type=client_credentials",
+        headers={
+            "Authorization": f"Basic {creds}",
+            "User-Agent": USER_AGENT,
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+    )
+    try:
+        with urlopen(req, timeout=30, context=_SSL_CTX) as resp:
+            data = json.loads(resp.read())
+        _REDDIT_TOKEN = data["access_token"]
+        print("Authenticated with Reddit OAuth.", file=sys.stderr)
+    except Exception as e:
+        print(f"  ! Reddit OAuth failed: {e}", file=sys.stderr)
+    return _REDDIT_TOKEN
+
+
+def reddit_get(path: str) -> bytes:
+    """GET a reddit resource. Uses OAuth if creds are present (required from
+    cloud IPs), else falls back to the public www.reddit.com endpoint."""
+    token = get_reddit_token()
+    if token:
+        url = f"https://oauth.reddit.com{path}"
+        headers = {"Authorization": f"Bearer {token}"}
+    else:
+        url = f"https://www.reddit.com{path}"
+        headers = None
+    return http_get(url, headers=headers)
 
 
 def load_ticker_whitelist() -> set[str]:
@@ -193,8 +247,7 @@ def extract_tickers(text: str, whitelist: set[str]) -> list[str]:
 
 
 def fetch_subreddit_posts(sub: str, listing: str = "new", limit: int = 100) -> list[dict]:
-    url = f"https://www.reddit.com/r/{sub}/{listing}.json?limit={limit}"
-    raw = http_get(url)
+    raw = reddit_get(f"/r/{sub}/{listing}.json?limit={limit}")
     import json
     data = json.loads(raw)
     return [c["data"] for c in data.get("data", {}).get("children", [])]
@@ -215,8 +268,7 @@ def _walk_comments(children: list[dict], out: list[dict]) -> None:
 def fetch_post_comments(post_id_short: str) -> list[dict]:
     """Fetch the comment tree for one post. post_id_short is the base36 id
     without the t3_ prefix."""
-    url = f"https://www.reddit.com/comments/{post_id_short}.json?limit=500&depth=10"
-    raw = http_get(url)
+    raw = reddit_get(f"/comments/{post_id_short}.json?limit=500&depth=10")
     import json
     data = json.loads(raw)
     # Response is [post_listing, comments_listing]
