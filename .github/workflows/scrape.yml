@@ -46,7 +46,25 @@ jobs:
           git add mentions.db tickers.txt REPORT.md
           if git diff --cached --quiet; then
             echo "No changes to commit."
-          else
-            git commit -m "data: scrape $(date -u +%Y-%m-%dT%H:%MZ) [skip ci]"
-            git push
+            exit 0
           fi
+          git commit -m "data: scrape $(date -u +%Y-%m-%dT%H:%MZ) [skip ci]"
+          # Retry push with rebase to handle concurrent commits (other
+          # workflow runs, or human pushes while we were scraping).
+          # mentions.db is binary so rebase can't auto-merge it — if it
+          # conflicts, prefer the remote's version (which is newer history
+          # we don't want to clobber) and re-run our scrape on top by
+          # cherry-picking just REPORT.md generation. Simpler heuristic:
+          # if the binary conflicts, give up gracefully so the next run
+          # tries fresh.
+          for i in 1 2 3 4 5; do
+            if git push; then exit 0; fi
+            echo "push rejected, attempt $i — pulling and retrying"
+            git pull --rebase --strategy-option=theirs origin main || {
+              echo "rebase failed irrecoverably; aborting this run"
+              git rebase --abort || true
+              exit 0
+            }
+          done
+          echo "push failed after 5 attempts"
+          exit 1
