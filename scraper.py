@@ -27,7 +27,15 @@ DEFAULT_SUBS = [
     "StockMarket",
     "options",
     "pennystocks",
+    "Daytrading",
+    "smallstreetbets",
+    "Shortsqueeze",
+    "Vitards",
 ]
+
+LISTINGS = ("new", "hot", "rising")
+COMMENTS_PER_SUB = 15  # how many hot posts per sub to fetch comments for
+REQUEST_SLEEP = 1.2    # seconds between Reddit requests; ~50 req/min
 
 # Uppercase words that look like tickers but almost always aren't.
 STOPWORD_TICKERS = {
@@ -130,8 +138,35 @@ def init_db() -> sqlite3.Connection:
         )
     """)
     conn.execute("CREATE INDEX IF NOT EXISTS idx_mentions_ticker_day ON mentions(ticker, day)")
+    # Per-item dedup: each reddit post/comment ID is processed exactly once
+    # ever. Prevents double-counting across overlapping listings and across
+    # runs. id is the full reddit name like "t3_abc123" (post) or "t1_xyz".
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS seen_items (
+            id TEXT PRIMARY KEY,
+            kind TEXT NOT NULL,
+            created_utc REAL NOT NULL,
+            seen_at REAL NOT NULL
+        )
+    """)
     conn.commit()
     return conn
+
+
+def filter_unseen(conn: sqlite3.Connection, ids: list[str]) -> set[str]:
+    """Return the subset of ids not already in seen_items."""
+    if not ids:
+        return set()
+    seen: set[str] = set()
+    # Chunk to keep parameter count under SQLite's limit.
+    for i in range(0, len(ids), 500):
+        chunk = ids[i:i + 500]
+        placeholders = ",".join("?" * len(chunk))
+        rows = conn.execute(
+            f"SELECT id FROM seen_items WHERE id IN ({placeholders})", chunk
+        ).fetchall()
+        seen.update(r[0] for r in rows)
+    return set(ids) - seen
 
 
 CASHTAG_RE = re.compile(r"\$([A-Za-z]{1,5})\b")
@@ -165,39 +200,131 @@ def fetch_subreddit_posts(sub: str, listing: str = "new", limit: int = 100) -> l
     return [c["data"] for c in data.get("data", {}).get("children", [])]
 
 
+def _walk_comments(children: list[dict], out: list[dict]) -> None:
+    for c in children:
+        kind = c.get("kind")
+        data = c.get("data", {})
+        if kind == "t1":
+            out.append(data)
+            replies = data.get("replies")
+            if isinstance(replies, dict):
+                _walk_comments(replies.get("data", {}).get("children", []), out)
+        # 'more' stubs are skipped — would need extra requests to expand.
+
+
+def fetch_post_comments(post_id_short: str) -> list[dict]:
+    """Fetch the comment tree for one post. post_id_short is the base36 id
+    without the t3_ prefix."""
+    url = f"https://www.reddit.com/comments/{post_id_short}.json?limit=500&depth=10"
+    raw = http_get(url)
+    import json
+    data = json.loads(raw)
+    # Response is [post_listing, comments_listing]
+    if not isinstance(data, list) or len(data) < 2:
+        return []
+    comments: list[dict] = []
+    _walk_comments(data[1].get("data", {}).get("children", []), comments)
+    return comments
+
+
 def utc_day(unix_ts: float) -> str:
     return datetime.fromtimestamp(unix_ts, tz=timezone.utc).date().isoformat()
 
 
 def scrape(subs: list[str], whitelist: set[str], conn: sqlite3.Connection) -> None:
-    # (day, sub, ticker) -> count
+    # (day, sub, ticker) -> count of mentions from items NEW this run only.
     bucket: dict[tuple[str, str, str], int] = defaultdict(int)
-    for sub in subs:
-        try:
-            posts = fetch_subreddit_posts(sub, "new", 100)
-        except Exception as e:
-            print(f"  ! {sub}: {e}", file=sys.stderr)
-            continue
-        print(f"  {sub}: {len(posts)} posts", file=sys.stderr)
-        for p in posts:
-            day = utc_day(p.get("created_utc", time.time()))
-            text = f"{p.get('title','')}\n{p.get('selftext','')}"
-            for t in extract_tickers(text, whitelist):
-                bucket[(day, sub, t)] += 1
-        time.sleep(1.5)  # be polite to reddit
+    # (id, kind, created_utc) tuples to mark seen at the end.
+    to_mark: list[tuple[str, str, float]] = []
+    now = time.time()
 
-    # Upsert: add to existing counts so multiple runs in a day accumulate
-    # without double-counting the same post-day-ticker combo. We use MAX so
-    # repeated runs of the same window don't inflate — counts are monotonic
-    # within a day as the /new feed only adds posts.
+    def process_item(name: str, kind: str, sub: str, created_utc: float, text: str) -> None:
+        to_mark.append((name, kind, created_utc))
+        day = utc_day(created_utc)
+        for t in extract_tickers(text, whitelist):
+            bucket[(day, sub, t)] += 1
+
+    for sub in subs:
+        # 1) Fetch posts from multiple listings. Listings overlap heavily;
+        #    seen_items dedup makes that free.
+        all_posts: dict[str, dict] = {}  # fullname -> post
+        for listing in LISTINGS:
+            try:
+                posts = fetch_subreddit_posts(sub, listing, 100)
+            except Exception as e:
+                print(f"  ! r/{sub} {listing}: {e}", file=sys.stderr)
+                continue
+            for p in posts:
+                name = p.get("name") or f"t3_{p.get('id','')}"
+                all_posts[name] = p
+            time.sleep(REQUEST_SLEEP)
+        print(f"  r/{sub}: {len(all_posts)} unique posts across listings", file=sys.stderr)
+
+        # 2) Filter to posts we haven't processed before.
+        unseen_post_ids = filter_unseen(conn, list(all_posts.keys()))
+        for name in unseen_post_ids:
+            p = all_posts[name]
+            process_item(
+                name, "post", sub,
+                p.get("created_utc", now),
+                f"{p.get('title','')}\n{p.get('selftext','')}",
+            )
+
+        # 3) Fetch comments from the top hot posts for this sub. Use the hot
+        #    listing to prioritize where conversation is happening. Even if a
+        #    post itself was already seen, its comments may include new ones.
+        hot_posts = [p for p in all_posts.values() if p.get("name", "").startswith("t3_")]
+        hot_posts.sort(key=lambda p: -(p.get("score", 0) or 0))
+        comment_fetched = 0
+        for p in hot_posts[:COMMENTS_PER_SUB]:
+            short_id = p.get("id")
+            if not short_id:
+                continue
+            try:
+                comments = fetch_post_comments(short_id)
+            except Exception as e:
+                print(f"  ! r/{sub} comments {short_id}: {e}", file=sys.stderr)
+                time.sleep(REQUEST_SLEEP)
+                continue
+            unseen_comment_ids = filter_unseen(
+                conn, [f"t1_{c['id']}" for c in comments if c.get("id")]
+            )
+            for c in comments:
+                cid = c.get("id")
+                if not cid:
+                    continue
+                full = f"t1_{cid}"
+                if full not in unseen_comment_ids:
+                    continue
+                process_item(
+                    full, "comment", sub,
+                    c.get("created_utc", now),
+                    c.get("body", "") or "",
+                )
+            comment_fetched += 1
+            time.sleep(REQUEST_SLEEP)
+        print(f"  r/{sub}: fetched comments from {comment_fetched} posts", file=sys.stderr)
+
+    # 4) Persist atomically. Counts are additive: each item is processed at
+    #    most once (enforced by seen_items PK), so summing is safe.
     with conn:
         for (day, sub, ticker), count in bucket.items():
             conn.execute("""
                 INSERT INTO mentions (day, subreddit, ticker, count)
                 VALUES (?, ?, ?, ?)
                 ON CONFLICT(day, subreddit, ticker) DO UPDATE SET
-                    count = MAX(count, excluded.count)
+                    count = mentions.count + excluded.count
             """, (day, sub, ticker, count))
+        conn.executemany(
+            "INSERT OR IGNORE INTO seen_items (id, kind, created_utc, seen_at) VALUES (?, ?, ?, ?)",
+            [(i, k, c, now) for (i, k, c) in to_mark],
+        )
+
+    print(
+        f"  recorded {sum(bucket.values())} new mentions across "
+        f"{len(to_mark)} new items",
+        file=sys.stderr,
+    )
 
 
 def report(conn: sqlite3.Connection, target_day: str, baseline_days: int = 7, top_n: int = 25) -> None:

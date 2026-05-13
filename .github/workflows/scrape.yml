@@ -2,8 +2,9 @@ name: scrape-reddit-tickers
 
 on:
   schedule:
-    # Every 4 hours, on the hour, in UTC.
-    - cron: "0 */4 * * *"
+    # Every 5 minutes. Note: GitHub may delay scheduled workflows during
+    # high load — actual cadence often closer to 10-15 min.
+    - cron: "*/5 * * * *"
   workflow_dispatch: {}
 
 permissions:
