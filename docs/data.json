@@ -1,0 +1,418 @@
+{
+  "generated_at": "2026-05-13 21:31 UTC",
+  "today": "2026-05-13",
+  "stats": {
+    "items_seen_total": 19374,
+    "distinct_tickers_today": 25,
+    "mentions_today": 451
+  },
+  "top_today": [
+    {
+      "ticker": "MU",
+      "count": 45
+    },
+    {
+      "ticker": "NVDA",
+      "count": 37
+    },
+    {
+      "ticker": "AMD",
+      "count": 33
+    },
+    {
+      "ticker": "SKM",
+      "count": 31
+    },
+    {
+      "ticker": "PPI",
+      "count": 26
+    },
+    {
+      "ticker": "SPY",
+      "count": 25
+    },
+    {
+      "ticker": "NBIS",
+      "count": 22
+    },
+    {
+      "ticker": "SOFI",
+      "count": 21
+    },
+    {
+      "ticker": "RKLB",
+      "count": 20
+    },
+    {
+      "ticker": "DRAM",
+      "count": 17
+    },
+    {
+      "ticker": "AMT",
+      "count": 17
+    },
+    {
+      "ticker": "SNDK",
+      "count": 15
+    },
+    {
+      "ticker": "PSMT",
+      "count": 13
+    },
+    {
+      "ticker": "HBM",
+      "count": 13
+    },
+    {
+      "ticker": "CELH",
+      "count": 13
+    },
+    {
+      "ticker": "QQQ",
+      "count": 12
+    },
+    {
+      "ticker": "CHTR",
+      "count": 12
+    },
+    {
+      "ticker": "VOO",
+      "count": 11
+    },
+    {
+      "ticker": "NB",
+      "count": 11
+    },
+    {
+      "ticker": "PLTR",
+      "count": 10
+    },
+    {
+      "ticker": "IP",
+      "count": 10
+    },
+    {
+      "ticker": "GME",
+      "count": 10
+    },
+    {
+      "ticker": "VELO",
+      "count": 9
+    },
+    {
+      "ticker": "RR",
+      "count": 9
+    },
+    {
+      "ticker": "ARR",
+      "count": 9
+    }
+  ],
+  "spikes": [
+    {
+      "ticker": "SKM",
+      "today": 31,
+      "avg": 0.0,
+      "ratio": 31.0,
+      "is_new": true
+    },
+    {
+      "ticker": "PPI",
+      "today": 26,
+      "avg": 1.0,
+      "ratio": 26.0,
+      "is_new": false
+    },
+    {
+      "ticker": "SOFI",
+      "today": 21,
+      "avg": 1.0,
+      "ratio": 21.0,
+      "is_new": false
+    },
+    {
+      "ticker": "NBIS",
+      "today": 22,
+      "avg": 1.43,
+      "ratio": 15.4,
+      "is_new": false
+    },
+    {
+      "ticker": "CELH",
+      "today": 13,
+      "avg": 0.14,
+      "ratio": 13.0,
+      "is_new": false
+    },
+    {
+      "ticker": "HBM",
+      "today": 13,
+      "avg": 0.71,
+      "ratio": 13.0,
+      "is_new": false
+    },
+    {
+      "ticker": "PSMT",
+      "today": 13,
+      "avg": 0.0,
+      "ratio": 13.0,
+      "is_new": true
+    },
+    {
+      "ticker": "NB",
+      "today": 11,
+      "avg": 0.0,
+      "ratio": 11.0,
+      "is_new": true
+    },
+    {
+      "ticker": "AMT",
+      "today": 17,
+      "avg": 1.57,
+      "ratio": 10.82,
+      "is_new": false
+    },
+    {
+      "ticker": "ARR",
+      "today": 9,
+      "avg": 0.71,
+      "ratio": 9.0,
+      "is_new": false
+    },
+    {
+      "ticker": "RR",
+      "today": 9,
+      "avg": 0.86,
+      "ratio": 9.0,
+      "is_new": false
+    },
+    {
+      "ticker": "VELO",
+      "today": 9,
+      "avg": 0.0,
+      "ratio": 9.0,
+      "is_new": true
+    },
+    {
+      "ticker": "CHTR",
+      "today": 12,
+      "avg": 1.71,
+      "ratio": 7.0,
+      "is_new": false
+    },
+    {
+      "ticker": "RKLB",
+      "today": 20,
+      "avg": 3.29,
+      "ratio": 6.09,
+      "is_new": false
+    },
+    {
+      "ticker": "B",
+      "today": 6,
+      "avg": 0.0,
+      "ratio": 6.0,
+      "is_new": true
+    }
+  ],
+  "trends": {
+    "days": [
+      "2026-04-30",
+      "2026-05-01",
+      "2026-05-02",
+      "2026-05-03",
+      "2026-05-04",
+      "2026-05-05",
+      "2026-05-06",
+      "2026-05-07",
+      "2026-05-08",
+      "2026-05-09",
+      "2026-05-10",
+      "2026-05-11",
+      "2026-05-12",
+      "2026-05-13"
+    ],
+    "tickers": [
+      "AMD",
+      "MU",
+      "NVDA",
+      "SPY",
+      "MSFT",
+      "VOO",
+      "QQQ",
+      "WYFI"
+    ],
+    "series": {
+      "AMD": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        9,
+        13,
+        3,
+        41,
+        48,
+        112,
+        69,
+        33
+      ],
+      "MU": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        2,
+        4,
+        0,
+        13,
+        25,
+        24,
+        24,
+        46,
+        45
+      ],
+      "NVDA": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        4,
+        5,
+        9,
+        0,
+        15,
+        8,
+        41,
+        23,
+        37
+      ],
+      "SPY": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        7,
+        5,
+        8,
+        4,
+        22,
+        17,
+        21,
+        25
+      ],
+      "MSFT": [
+        2,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        3,
+        11,
+        50,
+        34,
+        6
+      ],
+      "VOO": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        4,
+        9,
+        0,
+        0,
+        0,
+        22,
+        30,
+        20,
+        11
+      ],
+      "QQQ": [
+        4,
+        0,
+        0,
+        0,
+        6,
+        1,
+        2,
+        0,
+        1,
+        2,
+        13,
+        12,
+        21,
+        12
+      ],
+      "WYFI": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        72,
+        1,
+        0
+      ]
+    }
+  },
+  "by_subreddit": [
+    {
+      "subreddit": "stocks",
+      "count": 295
+    },
+    {
+      "subreddit": "wallstreetbets",
+      "count": 234
+    },
+    {
+      "subreddit": "investing",
+      "count": 189
+    },
+    {
+      "subreddit": "smallstreetbets",
+      "count": 122
+    },
+    {
+      "subreddit": "pennystocks",
+      "count": 85
+    },
+    {
+      "subreddit": "Daytrading",
+      "count": 70
+    },
+    {
+      "subreddit": "options",
+      "count": 36
+    },
+    {
+      "subreddit": "Shortsqueeze",
+      "count": 19
+    },
+    {
+      "subreddit": "StockMarket",
+      "count": 16
+    },
+    {
+      "subreddit": "Vitards",
+      "count": 5
+    }
+  ]
+}

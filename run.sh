@@ -26,16 +26,20 @@ PY="$(command -v python3)"
         echo
         echo "_Last updated: $(date -u +%Y-%m-%dT%H:%MZ) (laptop)_"
         echo
+        echo "**[Open the live dashboard](https://saroshsopariwalla.github.io/reddit-stock-flagger/)**"
+        echo
         echo '```'
         "$PY" scraper.py --report --top 25
         echo '```'
     } > REPORT.md
 
+    "$PY" dashboard.py || echo "dashboard generation failed"
+
     # Pull first in case GitHub has changes we don't (e.g. you edited code
     # from the web UI). Rebase keeps history linear.
     git pull --rebase --autostash >/dev/null 2>&1 || true
 
-    git add mentions.db tickers.txt REPORT.md
+    git add mentions.db tickers.txt REPORT.md docs/index.html docs/data.json
     if git diff --cached --quiet; then
         echo "no changes to commit"
     else
