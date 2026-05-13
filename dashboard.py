@@ -82,6 +82,15 @@ def build_data(conn: sqlite3.Connection, target_day: str | None = None) -> dict:
         ).fetchall()
     ]
 
+    # When did we actually start scraping? (seen_at is set when we first
+    # process an item.) Anything before this date is incidental snapshot
+    # data captured from posts that happened to still be in /hot.
+    scraping_start_row = conn.execute("SELECT MIN(seen_at) FROM seen_items").fetchone()
+    scraping_start_day = (
+        datetime.fromtimestamp(scraping_start_row[0], tz=timezone.utc).date().isoformat()
+        if scraping_start_row and scraping_start_row[0] else today
+    )
+
     # Stats for the header.
     item_count = conn.execute("SELECT COUNT(*) FROM seen_items").fetchone()[0]
     distinct_tickers_today = len(top_today)
@@ -101,6 +110,7 @@ def build_data(conn: sqlite3.Connection, target_day: str | None = None) -> dict:
             "days": day_axis,
             "tickers": top_for_trend,
             "series": trends,
+            "scraping_start_day": scraping_start_day,
         },
         "by_subreddit": by_sub,
     }
@@ -113,6 +123,7 @@ HTML_TEMPLATE = r"""<!doctype html>
 <title>Reddit Ticker Pulse</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
 <style>
 :root {
   --bg: #0d1117;
@@ -307,6 +318,30 @@ async function main() {
     borderWidth: 2,
     pointRadius: 2,
   }));
+  // Mark where comprehensive scraping started; days before are an
+  // incidental snapshot from posts still in /hot at first scrape.
+  const startDay = data.trends.scraping_start_day;
+  const annotations = data.trends.days.includes(startDay) ? {
+    scrapeStart: {
+      type: "line",
+      xMin: startDay,
+      xMax: startDay,
+      borderColor: "#f78166",
+      borderWidth: 2,
+      borderDash: [6, 4],
+      label: {
+        display: true,
+        content: "live scraping starts",
+        position: "start",
+        backgroundColor: "rgba(247, 129, 102, 0.85)",
+        color: "#0d1117",
+        font: { size: 11, weight: "600" },
+        padding: { top: 4, bottom: 4, left: 6, right: 6 },
+        yAdjust: -6,
+      }
+    }
+  } : {};
+
   new Chart(document.getElementById("trendChart"), {
     type: "line",
     data: { labels: data.trends.days, datasets: trendDatasets },
@@ -314,7 +349,10 @@ async function main() {
       responsive: true,
       maintainAspectRatio: false,
       interaction: { mode: "index", intersect: false },
-      plugins: { legend: { position: "top", labels: { boxWidth: 12 } } },
+      plugins: {
+        legend: { position: "top", labels: { boxWidth: 12 } },
+        annotation: { annotations },
+      },
       scales: {
         x: { grid: { color: "#21262d" } },
         y: { grid: { color: "#30363d" }, beginAtZero: true },

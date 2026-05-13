@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-13 21:37 UTC",
+  "generated_at": "2026-05-13 21:43 UTC",
   "today": "2026-05-13",
   "stats": {
     "items_seen_total": 19374,
@@ -581,7 +581,8 @@
         8,
         17
       ]
-    }
+    },
+    "scraping_start_day": "2026-05-13"
   },
   "by_subreddit": [
     {
