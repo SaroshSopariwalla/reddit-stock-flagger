@@ -373,20 +373,61 @@ def report(conn: sqlite3.Connection, target_day: str, baseline_days: int = 7, to
         print(f"  {ticker:<8} {c:>6} {avg:>7.1f} {ratio:>7.1f}x{tag}")
 
 
+def ticker_history(conn: sqlite3.Connection, ticker: str, bucket: str = "month") -> None:
+    """Print mention counts for a single ticker over time, bucketed by day,
+    week, or month."""
+    ticker = ticker.upper()
+    if bucket == "day":
+        group_expr = "day"
+    elif bucket == "week":
+        # ISO week: YYYY-Www
+        group_expr = "strftime('%Y-W%W', day)"
+    elif bucket == "month":
+        group_expr = "substr(day, 1, 7)"
+    else:
+        raise ValueError(f"unknown bucket: {bucket}")
+
+    rows = conn.execute(f"""
+        SELECT {group_expr} AS period, SUM(count) AS total
+        FROM mentions
+        WHERE ticker = ?
+        GROUP BY period
+        ORDER BY period
+    """, (ticker,)).fetchall()
+
+    if not rows:
+        print(f"No mentions recorded for {ticker}.")
+        return
+
+    peak = max(t for _, t in rows) or 1
+    bar_width = 40
+    print(f"\n=== {ticker} mentions by {bucket} ===\n")
+    for period, total in rows:
+        bar = "#" * max(1, int(round(total / peak * bar_width)))
+        print(f"  {period:<10} {total:>6}  {bar}")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--scrape", action="store_true", help="Pull fresh data from Reddit")
     ap.add_argument("--report", action="store_true", help="Print today's report")
+    ap.add_argument("--ticker-history", metavar="TICKER", help="Show mention trend for one ticker")
+    ap.add_argument("--bucket", choices=("day", "week", "month"), default="month",
+                    help="Aggregation bucket for --ticker-history")
     ap.add_argument("--day", default=date.today().isoformat(), help="Report day (UTC, YYYY-MM-DD)")
     ap.add_argument("--baseline", type=int, default=7, help="Trailing baseline window in days")
     ap.add_argument("--top", type=int, default=25, help="How many rows per section")
     ap.add_argument("--subs", nargs="+", default=DEFAULT_SUBS, help="Subreddits to scrape")
     args = ap.parse_args()
 
+    conn = init_db()
+    if args.ticker_history:
+        ticker_history(conn, args.ticker_history, args.bucket)
+        return
+
     if not args.scrape and not args.report:
         args.scrape = args.report = True
 
-    conn = init_db()
     if args.scrape:
         whitelist = load_ticker_whitelist()
         print(f"Loaded {len(whitelist)} tickers. Scraping {len(args.subs)} subs...", file=sys.stderr)
